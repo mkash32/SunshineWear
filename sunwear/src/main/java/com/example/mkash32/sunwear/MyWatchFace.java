@@ -67,6 +67,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
      * displayed in interactive mode.
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
+    private int roundOffset;
+    private String t_high = "", t_low = "";
 
     /**
      * Handler message id for updating the time periodically in interactive mode.
@@ -101,8 +103,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
     private class Engine extends CanvasWatchFaceService.Engine implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
-        Paint mBackgroundPaint;
-        Paint mTextPaint, mTextPaintDate;
+        Paint mBackgroundPaint, mTextPaint, mTextPaintDate, temperaturePaint;
         boolean mAmbient;
         Calendar mCalendar;
 
@@ -120,7 +121,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
             }
         };
 
-        float mXOffset, mYOffset, myOffsetDate;
+        float xOffset, yOffset, yOffsetDate, offsetTemp;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -139,14 +140,28 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .build  ());
             Resources resources = MyWatchFace.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
+            yOffset = resources.getDimension(R.dimen.digital_y_offset);
+            yOffsetDate = resources.getDimension(R.dimen.digital_y_offset_date);
+            offsetTemp = resources.getDimension(R.dimen.digital_y_offset_temp);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
 
             mTextPaint = new Paint();
             mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
-            mTextPaintDate = createTextPaint(resources.getColor(R.color.date_text_color));
+            mTextPaint.setAntiAlias(true);
+            mTextPaint.setTypeface(NORMAL_TYPEFACE);
+
+            mTextPaintDate = new Paint();
+            mTextPaintDate = createTextPaint(resources.getColor(R.color.digital_text));
+            mTextPaintDate.setAntiAlias(true);
+            mTextPaintDate.setTypeface(NORMAL_TYPEFACE);
+
+            temperaturePaint = new Paint();
+            temperaturePaint.setTypeface(NORMAL_TYPEFACE);
+            temperaturePaint.setColor(resources.getColor(R.color.digital_text));
+            temperaturePaint.setAntiAlias(true);
+            apiClient.connect();
             mCalendar = Calendar.getInstance();
         }
 
@@ -207,14 +222,21 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             // Load resources that have alternate values for round watches.
             Resources resources = MyWatchFace.this.getResources();
-            boolean isRound = insets.isRound();
-            mXOffset = resources.getDimension(isRound
-                    ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            float textSize = resources.getDimension(isRound
-                    ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
-            mXOffset = resources.getDimension(isRound ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
+            float textSize;
+            if(insets.isRound()){
+                textSize = resources.getDimension(R.dimen.digital_text_size_round);
+                xOffset = resources.getDimension(R.dimen.digital_x_offset_round);
+                mTextPaintDate.setTextSize(textSize - 25);
+                temperaturePaint.setTextSize(45);
+                roundOffset = 20;
+            } else {
+                textSize = resources.getDimension(R.dimen.digital_text_size);
+                xOffset = resources.getDimension(R.dimen.digital_x_offset);
+                mTextPaintDate.setTextSize(textSize - 15);
+                temperaturePaint.setTextSize(35);
+                roundOffset = 0;
+            }
             mTextPaint.setTextSize(textSize);
-            mTextPaintDate.setTextSize(textSize - 15);
         }
 
         @Override
@@ -251,7 +273,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
          */
         @Override
         public void onTapCommand(int tapType, int x, int y, long eventTime) {
-            Resources resources = MyWatchFace.this.getResources();
             switch (tapType) {
                 case TAP_TYPE_TOUCH:
                     // The user has started touching the screen.
@@ -290,8 +311,9 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             String date = format.format(now);
 
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
-            canvas.drawText(date, mXOffset, myOffsetDate, mTextPaintDate);
+            canvas.drawText(text, xOffset, yOffset + roundOffset, mTextPaint);
+            canvas.drawText(date, xOffset, yOffsetDate + roundOffset, mTextPaintDate);
+            canvas.drawText((t_high + " | " + t_low), xOffset * 2, offsetTemp + roundOffset, temperaturePaint);
         }
 
         /**
@@ -336,8 +358,8 @@ public class MyWatchFace extends CanvasWatchFaceService {
                             DataItem item = event.getDataItem();
                             if (item.getUri().getPath().equals("/weather")) {
                                 final DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                                String t_high = dataMap.getString("high");
-                                String t_low = dataMap.getString("low");
+                                t_high = dataMap.getString("high");
+                                t_low = dataMap.getString("low");
                                 // Testing Data transfer
                                 Log.d("Wear data transfer", t_high + " " + t_low);
                             }
