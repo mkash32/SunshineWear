@@ -21,6 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -40,6 +42,7 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
@@ -48,6 +51,7 @@ import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -68,6 +72,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
      */
     private static final long INTERACTIVE_UPDATE_RATE_MS = TimeUnit.SECONDS.toMillis(1);
     private int roundOffset;
+    private Bitmap icon;
     private String t_high = "", t_low = "";
 
     /**
@@ -292,7 +297,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
             // Draw the background.
-            int width = bounds.width(), height = bounds.height();
             if (isInAmbientMode()) {
                 canvas.drawColor(Color.BLACK);
             } else {
@@ -305,6 +309,11 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             String text = String.format("%02d:%02d", mCalendar.get(Calendar.HOUR_OF_DAY),
                     mCalendar.get(Calendar.MINUTE));
+
+
+            if (icon != null) {
+                canvas.drawBitmap(icon, bounds.width() - (3*xOffset) + (2*roundOffset) , roundOffset * 4, temperaturePaint);
+            }
 
             //Printing the date in DD/MM/YYYY format.
             SimpleDateFormat format = new SimpleDateFormat("EEE, MMM dd yyyy");
@@ -362,6 +371,32 @@ public class MyWatchFace extends CanvasWatchFaceService {
                                 t_low = dataMap.getString("low");
                                 // Testing Data transfer
                                 Log.d("Wear data transfer", t_high + " " + t_low);
+
+                                new Thread(new Runnable() {
+                                    @Override
+                                    public void run() {
+
+                                        Asset asset = dataMap.getAsset("icon");
+                                        if (asset == null) {
+                                            return;
+                                        }
+                                        ConnectionResult result =
+                                                apiClient.blockingConnect(10000, TimeUnit.MILLISECONDS);
+
+                                        if (!result.isSuccess()) {
+                                            return;
+                                        }
+                                        // convert asset into a file descriptor and block until it's ready
+                                        InputStream assetInputStream = Wearable.DataApi.getFdForAsset(apiClient, asset).await().getInputStream();
+
+                                        if (assetInputStream == null) {
+                                            return;
+                                        }
+                                        // decode the stream into a icon
+                                        icon = BitmapFactory.decodeStream(assetInputStream);
+                                        invalidate();
+                                    }
+                                }).start();
                             }
                         }
                     }

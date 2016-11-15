@@ -40,6 +40,7 @@ import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.Wearable;
@@ -49,6 +50,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -71,6 +73,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     private static final int WEATHER_NOTIFICATION_ID = 3004;
 
     private GoogleApiClient apiClient;
+    private Asset iconAsset;
     private String t_high, t_low;
 
 
@@ -95,6 +98,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
             dataMap.putLong("time", System.currentTimeMillis());
             dataMap.putString("high", t_high);
             dataMap.putString("low", t_low);
+            dataMap.putAsset("icon", iconAsset);
             mapRequest.setUrgent();
             Wearable.DataApi.putDataItem(apiClient, mapRequest.asPutDataRequest());
         }
@@ -474,6 +478,15 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                         Log.e(LOG_TAG, "Error retrieving large icon from " + artUrl, e);
                         largeIcon = BitmapFactory.decodeResource(resources, artResourceId);
                     }
+
+                    // Asset for Wear device
+                    Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), iconId);
+                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
+                    iconAsset = Asset.createFromBytes(byteArrayOutputStream.toByteArray());
+                    if(iconAsset != null)
+                        Log.i(LOG_TAG, "icon asset is not null");
+
                     String title = context.getString(R.string.app_name);
 
                     t_high =  Utility.formatTemperature(context, high);
