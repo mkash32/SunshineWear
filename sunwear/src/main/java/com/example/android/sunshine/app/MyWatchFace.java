@@ -105,18 +105,13 @@ public class MyWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener{
+    private class Engine extends CanvasWatchFaceService.Engine implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DataApi.DataListener{
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint, mTextPaint, mTextPaintDate, temperaturePaint;
         boolean mAmbient;
         Calendar mCalendar;
-
-        GoogleApiClient apiClient = new GoogleApiClient.Builder(MyWatchFace.this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
+        GoogleApiClient apiClient;
 
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
@@ -126,7 +121,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
             }
         };
 
-        float xOffset, yOffset, yOffsetDate, offsetTemp;
+        float xOffset, yOffset, yOffsetDate1, yOffsetDate2, offsetTemp;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -144,9 +139,17 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     .setShowSystemUiTime(false)
                     .setAcceptsTapEvents(true)
                     .build  ());
+
+            apiClient = new GoogleApiClient.Builder(MyWatchFace.this)
+                    .addApi(Wearable.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+
             Resources resources = MyWatchFace.this.getResources();
             yOffset = resources.getDimension(R.dimen.digital_y_offset);
-            yOffsetDate = resources.getDimension(R.dimen.digital_y_offset_date);
+            yOffsetDate1 = resources.getDimension(R.dimen.digital_y_offset_date1);
+            yOffsetDate2 = resources.getDimension(R.dimen.digital_y_offset_date2);
             offsetTemp = resources.getDimension(R.dimen.digital_y_offset_temp);
 
             mBackgroundPaint = new Paint();
@@ -316,12 +319,15 @@ public class MyWatchFace extends CanvasWatchFaceService {
             }
 
             //Printing the date in DD/MM/YYYY format.
-            SimpleDateFormat format = new SimpleDateFormat("EEE, MMM dd yyyy");
+            SimpleDateFormat format1 = new SimpleDateFormat("MMM dd yyyy");
+            SimpleDateFormat format2 = new SimpleDateFormat("EEEEEEE");
 
-            String date = format.format(now);
-
-            canvas.drawText(text, xOffset, yOffset + roundOffset, mTextPaint);
-            canvas.drawText(date, xOffset, yOffsetDate + roundOffset, mTextPaintDate);
+            String date = format1.format(now);
+            String day = format2.format(now);
+            float xOffsetCenter = xOffset + 30;
+            canvas.drawText(text, xOffsetCenter, yOffset + roundOffset, mTextPaint);
+            canvas.drawText(date, xOffset - 10, yOffsetDate1 + roundOffset, mTextPaintDate);
+            canvas.drawText(day, xOffset - 10, yOffsetDate2 + roundOffset, mTextPaintDate);
             canvas.drawText((t_high + " | " + t_low), xOffset * 2, offsetTemp + roundOffset, temperaturePaint);
         }
 
@@ -359,51 +365,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onConnected(@Nullable Bundle bundle) {
-            Wearable.DataApi.addListener(apiClient, new DataApi.DataListener() {
-                @Override
-                public void onDataChanged(DataEventBuffer dataEventBuffer) {
-                    for (DataEvent event : dataEventBuffer) {
-                        if (event.getType() == DataEvent.TYPE_CHANGED) {
-                            DataItem item = event.getDataItem();
-                            if (item.getUri().getPath().equals("/weather")) {
-                                final DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                                t_high = dataMap.getString("high");
-                                t_low = dataMap.getString("low");
-                                // Testing Data transfer
-                                Log.d("Wear data transfer", t_high + " " + t_low);
-
-                                new Thread(new Runnable() {
-                                    @Override
-                                    public void run() {
-
-                                        Asset asset = dataMap.getAsset("icon");
-                                        if (asset == null) {
-                                            return;
-                                        }
-                                        ConnectionResult result =
-                                                apiClient.blockingConnect(10000, TimeUnit.MILLISECONDS);
-
-                                        if (!result.isSuccess()) {
-                                            return;
-                                        }
-                                        // convert asset into a file descriptor and block until it's ready
-                                        InputStream assetInputStream = Wearable.DataApi.getFdForAsset(apiClient, asset).await().getInputStream();
-
-                                        if (assetInputStream == null) {
-                                            return;
-                                        }
-                                        // decode the stream into a icon
-                                        icon = BitmapFactory.decodeStream(assetInputStream);
-                                        invalidate();
-                                    }
-                                }).start();
-                            }
-                        }
-                    }
-                    invalidate();
-                }
-            });
-
         }
 
         @Override
@@ -414,6 +375,49 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+            for (DataEvent event : dataEventBuffer) {
+                if (event.getType() == DataEvent.TYPE_CHANGED) {
+                    DataItem item = event.getDataItem();
+                    if (item.getUri().getPath().equals("/weather")) {
+                        final DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+                        t_high = dataMap.getString("high");
+                        t_low = dataMap.getString("low");
+                        // Testing Data transfer
+                        Log.d("Wear data transfer", t_high + " " + t_low);
+
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+
+                                Asset asset = dataMap.getAsset("icon");
+                                if (asset == null) {
+                                    return;
+                                }
+                                ConnectionResult result =
+                                        apiClient.blockingConnect(10000, TimeUnit.MILLISECONDS);
+
+                                if (!result.isSuccess()) {
+                                    return;
+                                }
+                                // convert asset into a file descriptor and block until it's ready
+                                InputStream assetInputStream = Wearable.DataApi.getFdForAsset(apiClient, asset).await().getInputStream();
+
+                                if (assetInputStream == null) {
+                                    return;
+                                }
+                                // decode the stream into a icon
+                                icon = BitmapFactory.decodeStream(assetInputStream);
+                                invalidate();
+                            }
+                        }).start();
+                    }
+                }
+            }
+            invalidate();
         }
     }
 }

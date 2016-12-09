@@ -92,16 +92,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        if(t_high != null && t_low != null) {
-            PutDataMapRequest mapRequest = PutDataMapRequest.create("/weather");
-            DataMap dataMap = mapRequest.getDataMap();
-            dataMap.putLong("time", System.currentTimeMillis());
-            dataMap.putString("high", t_high);
-            dataMap.putString("low", t_low);
-            dataMap.putAsset("icon", iconAsset);
-            mapRequest.setUrgent();
-            Wearable.DataApi.putDataItem(apiClient, mapRequest.asPutDataRequest());
-        }
+
     }
 
     @Override
@@ -112,6 +103,21 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
+    }
+
+
+    public void sendData () {
+        if(t_high != null && t_low != null) {
+            PutDataMapRequest mapRequest = PutDataMapRequest.create("/weather");
+            DataMap dataMap = mapRequest.getDataMap();
+            dataMap.putLong("time", System.currentTimeMillis());
+            dataMap.putString("high", t_high);
+            dataMap.putString("low", t_low);
+            dataMap.putAsset("icon", iconAsset);
+            mapRequest.setUrgent();
+            Wearable.DataApi.putDataItem(apiClient, mapRequest.asPutDataRequest());
+            Log.e("WEARAPI","SENT"+t_low);
+        }
     }
 
     @Retention(RetentionPolicy.SOURCE)
@@ -496,6 +502,10 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                             desc,
                             t_high,
                             t_low);
+
+                    // Send data to wear
+                    sendData();
+
 
                     // NotificationCompatBuilder is a very convenient way to build backward-compatible
                     // notifications.  Just throw in some data.
