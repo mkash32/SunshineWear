@@ -105,7 +105,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DataApi.DataListener{
+    private class Engine extends CanvasWatchFaceService.Engine implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, DataApi.DataListener {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint, mTextPaint, mTextPaintDate, temperaturePaint;
@@ -138,7 +138,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                     .setShowSystemUiTime(false)
                     .setAcceptsTapEvents(true)
-                    .build  ());
+                    .build());
 
             apiClient = new GoogleApiClient.Builder(MyWatchFace.this)
                     .addApi(Wearable.API)
@@ -231,20 +231,20 @@ public class MyWatchFace extends CanvasWatchFaceService {
             // Load resources that have alternate values for round watches.
             Resources resources = MyWatchFace.this.getResources();
             float textSize;
-            if(insets.isRound()){
+            if (insets.isRound()) {
                 textSize = resources.getDimension(R.dimen.digital_text_size_round);
                 xOffset = resources.getDimension(R.dimen.digital_x_offset_round);
                 mTextPaintDate.setTextSize(textSize - 25);
-                temperaturePaint.setTextSize(45);
+                temperaturePaint.setTextSize(textSize - 10);
                 roundOffset = 20;
             } else {
                 textSize = resources.getDimension(R.dimen.digital_text_size);
                 xOffset = resources.getDimension(R.dimen.digital_x_offset);
                 mTextPaintDate.setTextSize(textSize - 15);
-                temperaturePaint.setTextSize(35);
+                temperaturePaint.setTextSize(textSize - 15);
                 roundOffset = 0;
             }
-            mTextPaint.setTextSize(textSize);
+            mTextPaint.setTextSize(textSize + 10);
         }
 
         @Override
@@ -315,7 +315,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
 
             if (icon != null) {
-                canvas.drawBitmap(icon, bounds.width() - (3*xOffset) + (2*roundOffset) , roundOffset * 4, temperaturePaint);
+                canvas.drawBitmap(icon, bounds.width() - (3 * xOffset) + (2 * roundOffset), roundOffset * 4, temperaturePaint);
             }
 
             //Printing the date in DD/MM/YYYY format.
@@ -324,7 +324,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
             String date = format1.format(now);
             String day = format2.format(now);
-            float xOffsetCenter = xOffset + 30;
+            float xOffsetCenter = xOffset + 20;
             canvas.drawText(text, xOffsetCenter, yOffset + roundOffset, mTextPaint);
             canvas.drawText(date, xOffset - 10, yOffsetDate1 + roundOffset, mTextPaintDate);
             canvas.drawText(day, xOffset - 10, yOffsetDate2 + roundOffset, mTextPaintDate);
@@ -365,6 +365,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
         @Override
         public void onConnected(@Nullable Bundle bundle) {
+            Wearable.DataApi.addListener(apiClient, this);
         }
 
         @Override

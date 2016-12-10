@@ -92,7 +92,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-
+        sendData();
     }
 
     @Override
@@ -104,20 +104,29 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
+ 
+    public void sendData(){
+        Context mContext = getContext();
+        String locationQuery = Utility.getPreferredLocation(mContext);
 
+        Uri weatherUri = WeatherContract.WeatherEntry.buildWeatherLocationWithDate(locationQuery, System.currentTimeMillis());
 
-    public void sendData () {
-        if(t_high != null && t_low != null) {
-            PutDataMapRequest mapRequest = PutDataMapRequest.create("/weather");
-            DataMap dataMap = mapRequest.getDataMap();
-            dataMap.putLong("time", System.currentTimeMillis());
-            dataMap.putString("high", t_high);
-            dataMap.putString("low", t_low);
-            dataMap.putAsset("icon", iconAsset);
-            mapRequest.setUrgent();
-            Wearable.DataApi.putDataItem(apiClient, mapRequest.asPutDataRequest());
-            Log.e("WEARAPI","SENT"+t_low);
-        }
+        Cursor cursor = mContext.getContentResolver().query(weatherUri, NOTIFY_WEATHER_PROJECTION, null, null, null);
+        if (cursor == null || !cursor.moveToFirst())
+            return;
+
+        t_high =  Utility.formatTemperature(mContext, cursor.getDouble(INDEX_MAX_TEMP));
+        t_low =  Utility.formatTemperature(mContext, cursor.getDouble(INDEX_MIN_TEMP));
+
+        PutDataMapRequest mapRequest = PutDataMapRequest.create("/weather");
+        DataMap dataMap = mapRequest.getDataMap();
+        dataMap.putLong("time", System.currentTimeMillis());
+        dataMap.putString("high", t_high);
+        dataMap.putString("low", t_low);
+        dataMap.putAsset("icon", iconAsset);
+        mapRequest.setUrgent();
+        Wearable.DataApi.putDataItem(apiClient, mapRequest.asPutDataRequest());
+        Log.e("WEARAPI","SENT"+t_low);
     }
 
     @Retention(RetentionPolicy.SOURCE)
@@ -398,6 +407,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                 updateWidgets();
                 updateMuzei();
                 notifyWeather();
+                sendData();
             }
             Log.d(LOG_TAG, "Sync Complete. " + cVVector.size() + " Inserted");
             setLocationStatus(getContext(), LOCATION_STATUS_OK);
@@ -502,10 +512,6 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements 
                             desc,
                             t_high,
                             t_low);
-
-                    // Send data to wear
-                    sendData();
-
 
                     // NotificationCompatBuilder is a very convenient way to build backward-compatible
                     // notifications.  Just throw in some data.
